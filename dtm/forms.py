@@ -1,14 +1,12 @@
-from socketserver import DatagramRequestHandler
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from flask_login import current_user
-from wtforms import StringField, PasswordField, DateTimeLocalField, SubmitField, BooleanField, ValidationError
+from wtforms import StringField, PasswordField, SubmitField, BooleanField, ValidationError
 from wtforms.fields import DateField
 from wtforms.validators import DataRequired, Length, Email, EqualTo
 from dtm.models import User
-from dtm import app, mongo
+from dtm import mongo, users
 
-users = mongo.db.user
 
 class RegistraionFrom(FlaskForm):
     username = StringField("Operator name", validators=[DataRequired(), Length(min=2, max=20)])

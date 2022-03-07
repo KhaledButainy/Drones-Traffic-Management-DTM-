@@ -1,14 +1,11 @@
 import os
 import secrets
-import datetime
-from PIL import Image
-from flask import flash, render_template, url_for, flash, redirect, request, session
-from dtm import app, db, mongo, bcrypt, login_manager
+from datetime import datetime
+from flask import flash, render_template, url_for, flash, redirect, request
+from dtm import app, mongo, users, bcrypt
 from dtm.forms import RegistraionFrom, LoginForm, UpdateAccountForm
 from dtm.models import User
 from flask_login import login_user, logout_user, current_user, login_required
-
-users = mongo.db.user
 
 posts = [
     {
@@ -32,12 +29,11 @@ def register():
         user = {'username':form.username.data,
                 'email':form.email.data,
                 'certificateID':form.certificateID.data,
-                'expireDate': datetime.datetime.today().date().replace(year=expireDate.year, month=expireDate.month, day=expireDate.day),
+                'expireDate': datetime.today().date().replace(year=expireDate.year, month=expireDate.month, day=expireDate.day),
                 'password':hashed_password,
                 'address':form.address.data,
                 'phoneNumber':form.phoneNumber.data}
         users.insert_one(user)
-
         flash(f'Account created for {form.username.data}! Now you can log in.', 'success')
         return redirect(url_for('home'))
     return render_template("register.html", title="Register", form=form)
@@ -61,31 +57,6 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('login'))
-
-def save_certificate(form_certificateID ,form_certificate):
-    _, f_ext = os.path.splitext(form_certificate.filename)
-    certificate_fn = form_certificateID + f_ext
-    certificate_path = os.path.join(app.root_path, 'static/certificates', certificate_fn)
-    
-    output_size = (500, 500)
-    resized_image = Image.open(form_certificate)
-    resized_image.thumbnail(output_size)
-    resized_image.save(certificate_path)
-
-    return certificate_fn
-
-def save_picture(form_picture):
-    random_hex = secrets.token_hex(8)
-    _, f_ext = os.path.splitext(form_picture.filename)
-    picture_fn = random_hex + f_ext
-    picture_path = os.path.join(app.root_path, 'static/profile_pics', picture_fn)
-    
-    output_size = (125, 125)
-    resized_image = Image.open(form_picture)
-    resized_image.thumbnail(output_size)
-    resized_image.save(picture_path)
-
-    return picture_fn
 
 @app.route("/account", methods=['GET', 'POST'])
 @login_required

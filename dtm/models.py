@@ -1,10 +1,7 @@
-from datetime import datetime
-from dtm import db, mongo, login_manager
+from dtm import mongo, users, login_manager
 from flask_login import UserMixin
 from bson.objectid import ObjectId
 
-
-users = mongo.db.user
 
 @login_manager.user_loader
 def load_user(id):
@@ -30,7 +27,6 @@ class User(UserMixin):
         self.phoneNumber = phoneNumber
         self.id = id
 
-
     @staticmethod
     def get_user(email):
         user = users.find_one({"email": email})
@@ -46,3 +42,6 @@ class User(UserMixin):
             return None
         else:
             return User(user['username'], user['password'], user['email'], user['certificateID'], user['expireDate'], user['address'], user['phoneNumber'], user['_id'])
+
+# class Drone():
+#     pass
