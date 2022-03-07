@@ -2,7 +2,6 @@
 {% block content %}
 <div class="content-section">
     <div class="media">
-        <img class="rounded-circle account-img" src="{{ image_file }}">
         <div class="media-body">
             <h2 class="account-heading">{{ current_user.username }}</h2>
             <p class="text-secondary">{{ current_user.email }}</p>
@@ -12,16 +11,6 @@
         {{ form.hidden_tag() }}
         <fieldset class="form-group">
             <legend class="border-buttom mb-4">Account Info</legend>
-            <div class="form-group">
-                {{ form.certificateFile.label() }}
-                {{ form.certificateFile(class="form-control-file") }}
-
-                {% if form.certificateFile.errors %}
-                    {% for error in form.certificateFile.errors %}
-                        <span class="text-danger">{{ error }}</span></br>
-                    {% endfor %}
-                {% endif %}
-            </div>
             <div class="form-group">
                 {{ form.username.label(class="form-control-label") }}
 
@@ -76,16 +65,6 @@
                     </div>
                 {% else %}
                     {{ form.address(class="form-control form-control-lg") }}
-                {% endif %}
-            </div>
-            <div class="form-group">
-                {{ form.picture.label() }}
-                {{ form.picture(class="form-control-file") }}
-
-                {% if form.picture.errors %}
-                    {% for error in form.picture.errors %}
-                        <span class="text-danger">{{ error }}</span></br>
-                    {% endfor %}
                 {% endif %}
             </div>
             

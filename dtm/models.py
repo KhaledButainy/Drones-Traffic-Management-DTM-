@@ -1,40 +1,48 @@
 from datetime import datetime
-from email.policy import default
-from dtm import db, login_manager
+from dtm import db, mongo, login_manager
 from flask_login import UserMixin
+from bson.objectid import ObjectId
+
+
+users = mongo.db.user
 
 @login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+def load_user(id):
+    '''
+    Load user for login manager.
+    '''
+    u = User.get_user_by_id(id)
+    if u is None:
+        return None
+    return u
 
-# class User(db.Document):
-#     username = db.StringField()
-#     email = db.StringField()
-#     certificateID = db.StringField()
-#     password = db.StringField()
-
-class User(db.Model, UserMixin):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(20), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    certificateID = db.Column(db.String(60), nullable=False)
-    certificateFile = db.Column(db.String(20), nullable=False, default='default.jpg')
-    password = db.Column(db.String(60), nullable=False)
-    address = db.Column(db.String(60), nullable=False)
-    phoneNumber = db.Column(db.String(60), nullable=False)
-    image_file = db.Column(db.String(20), nullable=False, default='default.jpg')
-    posts = db.relationship('Post', backref='author', lazy=True)
-
-    def __repr__(self):
-        return f"User('{self.username}', '{self.email}', '{self.phoneNumber}')"
+class User(UserMixin):
+    '''
+    User class for login manager.
+    '''
+    def __init__(self, username, password, email, certificateID, expireDate, address, phoneNumber, id):
+        self.username = username
+        self.password = password
+        self.email = email
+        self.certificateID = certificateID
+        self.expireDate = expireDate
+        self.address = address
+        self.phoneNumber = phoneNumber
+        self.id = id
 
 
-class Post(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(100), nullable=False)
-    date_posted = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    content = db.Column(db.Text, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    @staticmethod
+    def get_user(email):
+        user = users.find_one({"email": email})
+        if user is None:
+            return None
+        else:
+            return User(user['username'], user['password'], user['email'], user['certificateID'], user['expireDate'], user['address'], user['phoneNumber'], user['_id'])
 
-    def __repr__(self):
-        return f"Post('{self.title}', '{self.date_posted}')"
+    @staticmethod
+    def get_user_by_id(id):
+        user = users.find_one({"_id": ObjectId(id)})
+        if user is None:
+            return None
+        else:
+            return User(user['username'], user['password'], user['email'], user['certificateID'], user['expireDate'], user['address'], user['phoneNumber'], user['_id'])
