@@ -1,4 +1,4 @@
-from dtm import mongo, users, login_manager
+from dtm import users, drones, login_manager
 from flask_login import UserMixin
 from bson.objectid import ObjectId
 
@@ -17,7 +17,7 @@ class User(UserMixin):
     '''
     User class for login manager.
     '''
-    def __init__(self, username, password, email, certificateID, expireDate, address, phoneNumber, id):
+    def __init__(self, username, password, email, certificateID, expireDate, address, phoneNumber, adminAuth, id):
         self.username = username
         self.password = password
         self.email = email
@@ -25,6 +25,7 @@ class User(UserMixin):
         self.expireDate = expireDate
         self.address = address
         self.phoneNumber = phoneNumber
+        self.adminAuth = adminAuth
         self.id = id
 
     @staticmethod
@@ -33,7 +34,7 @@ class User(UserMixin):
         if user is None:
             return None
         else:
-            return User(user['username'], user['password'], user['email'], user['certificateID'], user['expireDate'], user['address'], user['phoneNumber'], user['_id'])
+            return User(user['username'], user['password'], user['email'], user['certificateID'], user['expireDate'], user['address'], user['phoneNumber'], user['adminAuth'], user['_id'])
 
     @staticmethod
     def get_user_by_id(id):
@@ -41,7 +42,35 @@ class User(UserMixin):
         if user is None:
             return None
         else:
-            return User(user['username'], user['password'], user['email'], user['certificateID'], user['expireDate'], user['address'], user['phoneNumber'], user['_id'])
+            return User(user['username'], user['password'], user['email'], user['certificateID'], user['expireDate'], user['address'], user['phoneNumber'], user['adminAuth'], user['_id'])
 
-# class Drone():
-#     pass
+class Drone(UserMixin):
+    '''
+    Drone class for login manager.
+    '''
+    def __init__(self, type, brand, weight, droneLicenseID, droneLicenseExpDate, operator_id, id):
+        self.type = type
+        self.brand = brand
+        self.weight = weight
+        self.droneLicenseID = droneLicenseID
+        self.droneLicenseExpDate = droneLicenseExpDate
+        self.operator_id = operator_id
+        # self.admin_id = admin_id
+        self.id = id
+
+    @staticmethod
+    def get_drone(droneLicenseID):
+        drone = drones.find_one({"droneLicenseID": droneLicenseID})
+        if drone is None:
+            return None
+        else:
+            return Drone(drone['type'], drone['brand'], drone['weight'], drone['droneLicenseID'], drone['droneLicenseExpDate'], drone['operator_id'], drone['_id'])
+
+    @staticmethod
+    def get_drone_by_id(id):
+        drone = drones.find_one({"_id": ObjectId(id)})
+        if drone is None:
+            return None
+        else:
+            return Drone(drone['type'], drone['brand'], drone['weight'], drone['droneLicenseID'], drone['droneLicenseExpDate'], drone['operator_id'], drone['_id'])
+

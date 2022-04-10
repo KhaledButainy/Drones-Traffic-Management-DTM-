@@ -1,0 +1,39 @@
+
+{% extends "layout.html" %}
+{% block content %}
+
+    <h1>Pending Requests</h1>
+    {% for user in unAuth %}
+    <article class="media content-section">
+        <div class="media-body">
+            <div class="article-metadata">
+                <h5>
+                    <a class="mr-2" href="#">{{ user.username }}</a>
+                    <a href="/accept/{{user.email}}" class="btn btn-success">Accept</a>
+                    <a href="/reject/{{user.email}}" class="btn btn-danger">Reject</a>
+                </h5>
+            </div>
+            <h5> GACA Certificate ID: {{ user.certificateID }} Exp: {{ user.expireDate.date() }}</h5>
+            <h6>Email: {{ user.email }} | Phone: {{ user.phoneNumber }} | Address: {{ user.address }}</h6>
+        </div>
+    </article>
+    {% endfor %}
+
+    <h1>Authorized</h1>
+    {% for user in Auth %}
+        <article class="media content-section">
+            <div class="media-body">
+                <div class="article-metadata">
+                <h5>
+                    <a class="mr-2" href="#">{{ user.username }}</a>
+                    <a href="/unaccept/{{user.email}}" class="btn btn-warning">Unaccept</a>
+                    <a href="/reject/{{user.email}}" class="btn btn-danger">Remove</a>
+                </h5>
+                </div>
+                <h5> GACA Certificate ID: {{ user.certificateID }} Exp: {{ user.expireDate.date() }}</h5>
+                <h6>Email: {{ user.email }} | Phone: {{ user.phoneNumber }} | Address: {{ user.address }}</h6>
+            </div>
+        </article> 
+    {% endfor %}
+      
+{% endblock content%}

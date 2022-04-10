@@ -75,3 +75,31 @@
     </form>
 </div>
 {% endblock content%}
+{% block drones_sidebar%}
+<div class="col-md-4">
+    <div class="content-section">
+        <h3>My Drones</h3>
+        <p class='text-muted'>
+        <ul class="list-group">
+            <a class="list-group-item list-group-item-light" href="{{ url_for('drones_route') }}">Register a Drone</a>
+            <a class="list-group-item list-group-item-light" href="#">Edit a Drone Information</a>
+        </ul>
+        </p>
+        <div class="card">
+            <div class="card-header" id="headingOne">
+                <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">View Drones List</button>
+            </div>
+        
+            <div id="collapseOne" class="collapse show" aria-labelledby="headingOne" data-parent="#accordionExample">
+                <div class="card-body">
+                    {% for drone in drones %}
+                    <article class="media content-section">
+                        <h7><a class="article-title" href="#">{{ drone.droneLicenseID }}</a></h7>
+                    </article>
+                    {% endfor %}
+                </div>
+            </div>
+          </div>
+    </div>
+</div>
+{% endblock drones_sidebar%}

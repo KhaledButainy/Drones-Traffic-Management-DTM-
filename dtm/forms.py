@@ -5,14 +5,14 @@ from wtforms import StringField, PasswordField, SubmitField, BooleanField, Valid
 from wtforms.fields import DateField
 from wtforms.validators import DataRequired, Length, Email, EqualTo
 from dtm.models import User
-from dtm import mongo, users
+from dtm import users, drones
 
 
 class RegistraionFrom(FlaskForm):
     username = StringField("Operator name", validators=[DataRequired(), Length(min=2, max=20)])
     email = StringField('Email', validators=[DataRequired(), Email()])
     certificateID = StringField("GACA Certificate ID", validators=[DataRequired()])
-    expireDate = DateField("GACA Certificate Expiratin Date", format='%Y-%m-%d')
+    expireDate = DateField("GACA Certificate Expiry Date", format='%Y-%m-%d', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
     address = StringField('Address', validators=[DataRequired()])
     phoneNumber = StringField('Phone Number', validators=[DataRequired(), Length(min=10, max=10)])
@@ -89,3 +89,20 @@ class UpdateAccountForm(FlaskForm):
             for document in user:
                 if document:
                     raise ValidationError("This email already exists. Please choose a different email")
+
+class DroneFrom(FlaskForm):
+    type = StringField("Drone Type", validators=[DataRequired()])
+    brand = StringField('Drone Brand', validators=[DataRequired()])
+    weight = StringField("Weight", validators=[DataRequired()])
+    droneLicenseID = StringField("Drone License ID", validators=[DataRequired()])
+    droneLicenseExpDate = DateField("Drone License Expiry Date", format='%Y-%m-%d', validators=[DataRequired()])
+
+    submit = SubmitField('Add Drone')
+
+    def validate_droneLicenseID(self, droneLicenseID):
+        # validating if droneLicenseID is already in the database
+        drone = drones.find({"droneLicenseID": {"$eq":droneLicenseID.data}})
+        
+        for document in drone:
+            if document:
+                raise ValidationError("This drone License ID already exists. Please check!")
