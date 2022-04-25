@@ -1,4 +1,4 @@
-from dtm import users, drones, login_manager
+from dtm import users, drones, admins, login_manager
 from flask_login import UserMixin
 from bson.objectid import ObjectId
 
@@ -9,8 +9,13 @@ def load_user(id):
     Load user for login manager.
     '''
     u = User.get_user_by_id(id)
-    if u is None:
+    a = Admin.get_admin_by_id(id)
+    if u is None and a is None:
         return None
+    elif a and u is None:
+        return a
+    elif u and a is None:
+        return u
     return u
 
 class User(UserMixin):
@@ -43,6 +48,33 @@ class User(UserMixin):
             return None
         else:
             return User(user['username'], user['password'], user['email'], user['certificateID'], user['expireDate'], user['address'], user['phoneNumber'], user['adminAuth'], user['_id'])
+
+class Admin(UserMixin):
+    '''
+    Admin class for login manager.
+    '''
+    def __init__(self, username, password, email, id):
+        self.username = username
+        self.password = password
+        self.email = email
+        self.id = id
+
+    @staticmethod
+    def get_admin(email):
+        admin = admins.find_one({"email": email})
+        if admin is None:
+            return None
+        else:
+            return Admin(admin['username'], admin['password'], admin['email'], admin['_id'])
+
+    @staticmethod
+    def get_admin_by_id(id):
+        admin = admins.find_one({"_id": ObjectId(id)})
+        if admin is None:
+            return None
+        else:
+            return Admin(admin['username'], admin['password'], admin['email'], admin['_id'])
+
 
 class Drone(UserMixin):
     '''
