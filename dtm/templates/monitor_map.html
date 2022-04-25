@@ -1,0 +1,281 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<h1>Monitoring Map</h1>
+
+<div class="container">
+    <style type="text/css">
+        .marker {
+            background-image: url('../static/icons/drone-icon.png');
+            background-size: cover;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .coordinates {
+            background: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            padding: 5px 10px;
+            margin: 0;
+            font-size: 11px;
+            line-height: 18px;
+            border-radius: 3px;
+            display: block;
+        }
+    </style>
+
+    <div id='map' style='width: 100%; height: 500px;'></div>
+    <script>
+
+    const client = stitch.Stitch.initializeDefaultAppClient('{{stitch_app_id}}');
+    const db = client.getServiceClient(stitch.RemoteMongoClient.factory, "mongodb-atlas").db("{{database_name}}");
+    var currentLocationMarker;
+
+    mapboxgl.accessToken = '{{mapbox_access_token}}';
+
+    var map = new mapboxgl.Map({
+      container: 'map',
+      style: '{{mapbox_style}}',
+    });
+
+    map.on('load', async () => {
+        var drones_markers = {};
+        var drones_altitude = {};
+        var drones_gps_status = {};
+        var drones_armed = {};
+        var drones_flight_mode = {};
+        var drones_speed = {};
+        var drones_eta = {};
+
+        
+        await client.auth.loginWithCredential(new stitch.AnonymousCredential());
+        userDrones = (await db.collection("drone").find().toArray());
+        if ("{{is_admin}}" == 'True'){
+            if ("{{selected_operator}}" == "All"){
+                userDrones = (await db.collection("drone").find().toArray());
+            }else{
+                userDrones = (await db.collection("drone").find({"operator_email": "{{selected_operator}}"}).toArray());
+            }
+        }else{
+            userDrones = (await db.collection("drone").find({"operator_email": "{{current_user_email}}"}).toArray());
+        }
+
+        let connectedDrones = userDrones.filter(drone => drone.connected === true);
+        if (connectedDrones.length){
+            connectedDrones.forEach(function (drone){
+                let currentLocation = drone.coordinates;
+                let currentAltiture = drone.altitude;
+                let currentGPSStatus = drone.gps_status;
+                let currentArmed = drone.armed;
+                let currentFlightMode = drone.flight_mode;
+                let currentSpeed = drone.speed;
+                let currentETA = drone.eta;
+
+                const el = document.createElement('div');
+                el.className = 'marker';
+                currentLocationMarker = new mapboxgl.Marker(el).setLngLat(currentLocation).addTo(map);
+                drones_markers[JSON.stringify(drone.droneLicenseID)] = currentLocation;
+                drones_altitude[JSON.stringify(drone.droneLicenseID)] = currentAltiture;
+                drones_gps_status[JSON.stringify(drone.droneLicenseID)] = currentGPSStatus;
+                drones_armed[JSON.stringify(drone.droneLicenseID)] = currentArmed;
+                drones_flight_mode[JSON.stringify(drone.droneLicenseID)] = currentFlightMode;
+                drones_speed[JSON.stringify(drone.droneLicenseID)] = currentSpeed;
+                drones_eta[JSON.stringify(drone.droneLicenseID)] = currentETA;
+                
+                if (drone.connected == true){
+                    document.getElementById(drone.droneLicenseID).className = "list-group-item list-group-item-success"
+                }
+                if (drone.armed == true){
+                    document.getElementById(drone.droneLicenseID).children.namedItem("drone_armed").className = "badge badge-success badge-pill";
+                    document.getElementById(drone.droneLicenseID).children.namedItem("drone_armed").innerHTML = "Armed";
+                }
+                if (drone.gps_status != -1){
+                    document.getElementById(drone.droneLicenseID).children.namedItem("drone_gps_status").className = "badge badge-success badge-pill";
+                    document.getElementById(drone.droneLicenseID).children.namedItem("drone_gps_status").innerHTML = "Fix";
+                }
+                document.getElementById(drone.droneLicenseID).children.namedItem("stream_row").children
+                .namedItem("stream_col1").children.namedItem("drone_speed").innerHTML = `<b>Speed:</b>${drone.speed}`;
+                document.getElementById(drone.droneLicenseID).children.namedItem("stream_row").children
+                .namedItem("stream_col1").children.namedItem("drone_altitude").innerHTML = `<b>Altitude:</b>${drone.altitude}`;
+                document.getElementById(drone.droneLicenseID).children.namedItem("stream_row").children
+                .namedItem("stream_col1").children.namedItem("drone_eta").innerHTML = `<b>ETA:</b>${drone.eta}`;
+                document.getElementById(drone.droneLicenseID).children.namedItem("stream_row").children
+                .namedItem("stream_col2").children.namedItem("drone_lng").innerHTML = `<b>lng:</b>${drone.coordinates[0]}`;
+                document.getElementById(drone.droneLicenseID).children.namedItem("stream_row").children
+                .namedItem("stream_col2").children.namedItem("drone_lat").innerHTML = `<b>lat:</b>${drone.coordinates[1]}`;
+                document.getElementById(drone.droneLicenseID).children.namedItem("stream_row").children
+                .namedItem("stream_col2").children.namedItem("drone_flight_mode").innerHTML = `<b>flight mode:</b>${drone.flight_mode}`;
+
+            });
+        }
+        // only watch updates in drone collection that matchese the criteria
+        const stream = await db.collection("drone").watch({});
+        if ("{{is_admin}}" == 'True'){
+            if ("{{selected_operator}}" == "All"){
+                stream = await db.collection("drone").watch({});
+            }else{
+                stream = await db.collection("drone").watch({"operator_email": "{{selected_operator}}"});
+            }
+        }else{
+            stream = await db.collection("drone").watch({"operator_email": "{{current_user_email}}"});
+        }
+        stream.onNext(e => {
+            if (e.updateDescription.updatedFields.hasOwnProperty("connected")){
+                if (e.fullDocument.connected == true){
+                    const el = document.createElement('div');
+                    el.className = 'marker';
+                    currentLocationMarker = new mapboxgl.Marker(el).setLngLat(e.fullDocument.coordinates).addTo(map);
+                    drones_markers[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.coordinates;
+                    drones_altitude[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.altitude;
+                    drones_gps_status[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.gps_status;
+                    drones_armed[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.armed;
+                    drones_flight_mode[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.flight_mode;
+                    drones_speed[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.speed;
+                    drones_eta[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.eta;
+                    document.getElementById(e.fullDocument.droneLicenseID).className = "list-group-item list-group-item-success"
+                } else{
+                    marker = map._markers.find(marker => marker._lngLat.lng == e.fullDocument.coordinates[0] && marker._lngLat.lat == e.fullDocument.coordinates[1]);
+                    marker.remove();
+                    delete drones_markers[JSON.stringify(e.fullDocument.droneLicenseID)];
+                    delete drones_altitude[JSON.stringify(e.fullDocument.droneLicenseID)];
+                    delete drones_gps_status[JSON.stringify(e.fullDocument.droneLicenseID)];
+                    delete drones_armed[JSON.stringify(e.fullDocument.droneLicenseID)];
+                    delete drones_flight_mode[JSON.stringify(e.fullDocument.droneLicenseID)];
+                    delete drones_speed[JSON.stringify(e.fullDocument.droneLicenseID)];
+                    delete drones_eta[JSON.stringify(e.fullDocument.droneLicenseID)];
+                    document.getElementById(e.fullDocument.droneLicenseID).className = "list-group-item list-group-item-danger"
+                }
+            }else{
+                for (const element in e.updateDescription.updatedFields){
+                    if(element === "coordinates"){
+                        old_marker = drones_markers[JSON.stringify(e.fullDocument.droneLicenseID)];
+                        new_marker = map._markers.find(marker => marker._lngLat.lng == old_marker[0] && marker._lngLat.lat == old_marker[1]);
+                        new_marker.setLngLat(e.fullDocument.coordinates);
+                        drones_markers[JSON.stringify(e.fullDocument.droneLicenseID)] = [new_marker._lngLat.lng, new_marker._lngLat.lat];
+                        document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("stream_row").children
+                        .namedItem("stream_col2").children.namedItem("drone_lng").innerHTML = `<b>lng:</b>${e.fullDocument.coordinates[0]}`;
+                        document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("stream_row").children
+                        .namedItem("stream_col2").children.namedItem("drone_lat").innerHTML = `<b>lat:</b>${e.fullDocument.coordinates[1]}`;
+
+                    }else if(element === "altitude"){
+                        drones_altitude[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.altitude;
+                        document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("stream_row").children
+                        .namedItem("stream_col1").children.namedItem("drone_altitude").innerHTML = `<b>Altitude:</b>${e.fullDocument.altitude}`;
+
+                    }else if(element === "gps_status"){
+                        drones_gps_status[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.gps_status;
+                        if (e.fullDocument.gps_status != -1){
+                            document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("drone_gps_status").className = "badge badge-success badge-pill";
+                            document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("drone_gps_status").innerHTML = "Fix";
+                        }else{
+                            document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("drone_gps_status").className = "badge badge-danger badge-pill";
+                            document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("drone_gps_status").innerHTML = "No Fix";
+                        }
+
+                    }else if(element === "armed"){
+                        drones_armed[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.armed;
+                        if (e.fullDocument.armed == true){
+                            document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("drone_armed").className = "badge badge-success badge-pill";
+                            document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("drone_armed").innerHTML = "Armed";
+                        }else{
+                            document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("drone_armed").className = "badge badge-danger badge-pill";
+                            document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("drone_armed").innerHTML = "Disarmed";
+                        }
+
+                    }else if(element === "flight_mode"){
+                        drones_flight_mode[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.flight_mode;
+                        document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("stream_row").children
+                        .namedItem("stream_col2").children.namedItem("drone_flight_mode").innerHTML = `<b>flight mode:</b>${e.fullDocument.flight_mode}`;
+
+                    }else if(element === "speed"){
+                        drones_speed[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.speed;
+                        document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("stream_row").children
+                        .namedItem("stream_col1").children.namedItem("drone_speed").innerHTML = `<b>Speed:</b>${e.fullDocument.speed}`;
+
+                    }else if(element === "eta"){
+                        drones_eta[JSON.stringify(e.fullDocument.droneLicenseID)] = e.fullDocument.eta;
+                        document.getElementById(e.fullDocument.droneLicenseID).children.namedItem("stream_row").children
+                        .namedItem("stream_col1").children.namedItem("drone_eta").innerHTML = `<b>ETA:</b>${e.fullDocument.eta}`;
+                        
+                    }
+                }
+            }
+        });
+
+        // add onclick here to jump to drone location
+        // document.on("click", (e) => {
+        //     console.log(e);
+        // });
+
+    })
+
+    </script>
+</div>
+
+{% endblock content%}
+{% block schedule_sidebar %}
+<div class="col-md-4">
+    {% if current_user.is_authenticated and current_user.__class__.__name__ == "Admin" %}
+    <div class="content-section">
+        <h3>Select Operator</h3>
+        &nbsp;
+        <form class="form-inline" method="POST" action="{{ url_for('monitor_map_drone_filter') }}">
+            <div class="form-group">
+              <div class="input-group">
+                <select name="operator_select" class="selectpicker form-control" required>
+                    <option id="operator_option" name="operator_option" value="All" {% if selected_operator == 'All' %} selected {% endif %}>All</option>
+                    {% for op in operators %}
+                        <option id="operator_option" name="operator_option" value="{{ op.email }}" {% if selected_operator == op.email %} selected {% endif %}>
+                            {{ op.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+              </div>
+              <button id="select_operator_btn" type="submit" class="btn btn-dark">Select</button>
+            </div>
+          </form>
+    </div>
+    {% endif %}
+    <div class="content-section">
+        <h3>Streaming Info</h3>
+        <p class='text-muted'>
+        <ul class="list-group">
+            {% if drones %}
+                {% for drone in drones %}
+                    <a class="list-group-item list-group-item-danger" id="{{ drone.droneLicenseID }}" value="{{ drone.droneLicenseID }}">
+                        <h6><b>{{drone.type}} {{drone.brand}}</b> <small>(LcnsID: {{drone.droneLicenseID}})</small></h6>
+                        <div name="stream_row" class="row">
+                            <div name="stream_col1" class="col-4">
+                                <small name="drone_speed"><b>Speed:</b>{{drone.speed}}</small>
+                                <br>
+                                <small name="drone_altitude"><b>Altitude:</b>{{drone.altitude}}</small>
+                                <br>
+                                <small name="drone_eta"><b>ETA:</b>{{drone.eta}}</small>
+                            </div>
+                            <div name="stream_col2" class="col-8">
+                                <small name="drone_lng"><b>lng:</b>{{drone.coordinates[0]}}</small>
+                                <br>
+                                <small name="drone_lat"><b>lat:</b>{{drone.coordinates[1]}}</small>
+                                <br>
+                                <small name="drone_flight_mode"><b>flight mode:</b>{{drone.flight_mode}}</small>
+
+                            </div>
+                          </div>
+                        <span name="drone_armed" class="badge badge-danger badge-pill">Disarmed</span>
+                        <span name="drone_gps_status" class="badge badge-danger badge-pill">No Fix</span>
+                    </a>
+                {% endfor %}
+            {% else %}
+                <h6>Empty</h6>
+            {% endif%}
+        </ul>
+        </p>
+    </div>
+</div>
+
+{% endblock schedule_sidebar %}
+

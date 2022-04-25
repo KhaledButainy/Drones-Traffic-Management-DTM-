@@ -12,7 +12,7 @@
         <!-- MapBox -->
         <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v2.7.0/mapbox-gl.js'></script>
         <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v2.7.0/mapbox-gl.css' rel='stylesheet' />
-        
+        <script src="https://s3.amazonaws.com/stitch-sdks/js/bundles/4.6.0/stitch.js"></script>
         {% if title %}
             <title>DTM - {{ title }}</title>
         {% else %}
@@ -30,16 +30,21 @@
                 <div class="collapse navbar-collapse" id="navbarToggle">
                     <div class="navbar-nav mr-auto">
                     <a class="nav-item nav-link" href="{{ url_for('home') }}">Home</a>
-                    <a class="nav-item nav-link" href="{{ url_for('authAccounts') }}">Authenticate Users</a>
+                    {% if current_user.is_authenticated and current_user.__class__.__name__ == "Admin" %}
+                        <a class="nav-item nav-link" href="{{ url_for('authAccounts') }}">Authenticate Users</a>
+                    {% endif %}
                     {% if current_user.is_authenticated %}
-                        <a class="nav-item nav-link" href="{{ url_for('map') }}">Map</a>
+                        <a class="nav-item nav-link" href="{{ url_for('schedule_map') }}">Schedule a Flight</a>
+                        <a class="nav-item nav-link" href="{{ url_for('monitor_map') }}">Monitor</a>
                     {% endif %}
                     </div>
                     <!-- Navbar Right Side -->
                     <div class="navbar-nav">
                     {% if current_user.is_authenticated %}
                         <a class="nav-item nav-link" href="{{ url_for('logout') }}">Logout</a>
-                        <a class="nav-item nav-link" href="{{ url_for('account') }}">Account</a>
+                        {% if current_user.is_authenticated and current_user.__class__.__name__ == "User" %}
+                            <a class="nav-item nav-link" href="{{ url_for('account') }}">Account</a>
+                        {% endif %}
                     {% else %}
                         <a class="nav-item nav-link" href="{{ url_for('login') }}">Login</a>
                         <a class="nav-item nav-link" href="{{ url_for('register') }}">Register</a>
