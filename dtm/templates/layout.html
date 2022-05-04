@@ -23,7 +23,7 @@
         <header class="site-header">
             <nav class="navbar navbar-expand-md navbar-dark bg-steel fixed-top">
                 <div class="container">
-                <a class="navbar-brand mr-4" href="{{ url_for('home') }}">Drones Traffic Management</a>
+                <a class="navbar-brand mr-4" href="{{ url_for('home') }}">DTM</a>
                 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarToggle" aria-controls="navbarToggle" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
@@ -32,8 +32,9 @@
                     <a class="nav-item nav-link" href="{{ url_for('home') }}">Home</a>
                     {% if current_user.is_authenticated and current_user.__class__.__name__ == "Admin" %}
                         <a class="nav-item nav-link" href="{{ url_for('authAccounts') }}">Authenticate Users</a>
+                        <a class="nav-item nav-link" href="{{ url_for('admin_monitor_map') }}">Monitor</a>
                     {% endif %}
-                    {% if current_user.is_authenticated %}
+                    {% if current_user.is_authenticated and current_user.__class__.__name__ == "User" %}
                         <a class="nav-item nav-link" href="{{ url_for('schedule_map') }}">Schedule a Flight</a>
                         <a class="nav-item nav-link" href="{{ url_for('monitor_map') }}">Monitor</a>
                     {% endif %}
@@ -56,6 +57,8 @@
         </header>
 
         <main role="main" class="container">
+            {% block homepage %}{% endblock %}
+
             <div class="row">
                 <div class="col-md-8">
                 {% with messages= get_flashed_messages(with_categories=true) %}
@@ -71,6 +74,7 @@
                 </div>
                 {% block drones_sidebar %}{% endblock %}
                 {% block schedule_sidebar %}{% endblock %}
+                {% block monitor_sidebar %}{% endblock %}
 
             </div>
         </main>

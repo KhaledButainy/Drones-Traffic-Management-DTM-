@@ -6,14 +6,20 @@
             "password": "admin"
         }
     ],
+
     "SECRET_KEY": "f9c3f15d8972e75a42f1a691020ecd03",
 
     "LOCAL_MONGO_URI": "mongodb://localhost:27017/mydb",
     "ATLAS_MONGO_URI": "mongodb+srv://khaled:1234@cluster0.bdpuf.mongodb.net/mydb?retryWrites=true&w=majority",
+    "STITCH_APP_ID": "application-0-lzyni",
     "DATABASE_NAME": "mydb",
+
     "MAPBOX_ACCESS_TOKEN": "pk.eyJ1Ijoia2hhbGVkOTgiLCJhIjoiY2wxZ3NveDN2MDc1bTNqbjJtczNzaW12aCJ9.tw5hbqzWoSHQPsyaI2pwGw",
     "MAPBOX_STYLE": "mapbox://styles/khaled98/cl1gsq9oo003c16rzy1ygkwq4",
 
-    "STITCH_APP_ID": "application-0-lzyni"
+    "BROKER_ADDRESS": "e11c62b2-internet-facing-dd9ccee78c5c7c57.elb.ap-southeast-1.amazonaws.com",
+    "BROKER_PORT": 1883,
+    "BROKER_CLIENT_USERNAME": "Cloud",
+    "BROKER_CLIENT_PASSWORD": "1234"
 
 }

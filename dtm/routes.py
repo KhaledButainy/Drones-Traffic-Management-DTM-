@@ -1,12 +1,16 @@
 
-from ast import operator
 import datetime
-from flask import flash, render_template, url_for, flash, redirect, request
-from sqlalchemy import false
-from dtm import app, users, admins, drones, bcrypt, config_json, MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE, DATABASE_NAME, STITCH_APP_ID
+from flask import flash, render_template, url_for, flash, redirect, request, session
+from dtm import app, users, admins, drones, current_flights, bcrypt, broker_client, MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE, DATABASE_NAME, STITCH_APP_ID
 from dtm.forms import DroneFrom, RegistraionFrom, LoginForm, UpdateAccountForm
 from dtm.models import User, Admin
 from flask_login import login_user, logout_user, current_user, login_required
+import atexit
+from apscheduler.schedulers.background import BackgroundScheduler
+from copy import deepcopy
+from dtm.PathPlanning.Sampling_based_Planning.rrt_3D import rrt_connect3D
+import json
+
 
 
 @app.route("/register", methods=['GET', 'POST'])
@@ -68,6 +72,7 @@ def logout():
 def account():
     form = UpdateAccountForm()
     drone = list(drones.find({"operator_email": current_user.email}))
+
     if form.validate_on_submit():
         current_user.username = form.username.data
         current_user.email = form.email.data
@@ -92,35 +97,39 @@ def account():
 @app.route("/")
 @app.route("/home")
 def home():
-    return render_template('home.html')
+    return render_template('home.html', title="Home")
 
 @app.route("/schedule_map", methods=['GET', 'POST'])
 @login_required
 def schedule_map(selected_drone = None):
     drone = list(drones.find({"$and": [{"operator_email": current_user.email}, {"connected": True}]}))
     selected_drone = request.args.get('selected_drone')
-        
+    src_dst = request.form.get('store_coordinates')
+    mission_path = {"coordinates": []}
+    no_fly_zones = json.load(open("./dtm/config/no_fly_zones.json"))
+
+    if request.method =="GET":
+        if "flight_src_dst" in session:
+            src_dst = session["flight_src_dst"]
+            session.pop('flight_src_dst', None)
+        if "mission_path" in session:
+            mission_path = session['mission_path']
+    
     return render_template("schedule_map.html", title="Schedule a Flight",
     mapbox_access_token=MAPBOX_ACCESS_TOKEN,
     mapbox_style=MAPBOX_STYLE,
     drones=drone,
-    selected_drone = selected_drone)
+    mission_path = mission_path,
+    selected_drone = selected_drone,
+    src_dst = src_dst, no_fly_zones=no_fly_zones)
 
 @app.route("/monitor_map", methods=['GET', 'POST'])
 @login_required
-def monitor_map(selected_operator = "All"):
+def monitor_map():
     drone = list(drones.find({"operator_email": current_user.email}))
-    operator = list(users.find({}))
-    selected_operator = request.args.get('selected_operator')
-    admin = next((admin for admin in config_json['ADMINS'] if admin["email"] == current_user.email), None)
-    is_admin = False
-    if admin:
-        is_admin = True
-        if selected_operator == 'All':
-            drone = list(drones.find({}))
-        else:
-            drone = list(drones.find({"operator_email": selected_operator}))
-    
+    no_fly_zones = json.load(open("./dtm/config/no_fly_zones.json"))
+
+
     return render_template("monitor_map.html", title="Monitor",
     mapbox_access_token=MAPBOX_ACCESS_TOKEN,
     mapbox_style=MAPBOX_STYLE,
@@ -128,9 +137,88 @@ def monitor_map(selected_operator = "All"):
     stitch_app_id=STITCH_APP_ID,
     current_user_email = current_user.email,
     drones=drone,
+    no_fly_zones=no_fly_zones)
+
+@app.route("/admin_monitor_map", methods=['GET', 'POST'])
+@login_required
+def admin_monitor_map(selected_operator = "All"):
+    drone = list(drones.find({}))
+    operator = list(users.find({}))
+    selected_operator = request.args.get('selected_operator')
+    no_fly_zones = json.load(open("./dtm/config/no_fly_zones.json"))
+
+    
+    return render_template("admin_monitor_map.html", title="Monitor",
+    mapbox_access_token=MAPBOX_ACCESS_TOKEN,
+    mapbox_style=MAPBOX_STYLE,
+    database_name=DATABASE_NAME,
+    stitch_app_id=STITCH_APP_ID,
+    drones=drone,
     operators=operator,
-    is_admin=is_admin,
-    selected_operator = selected_operator)
+    selected_operator = selected_operator,
+    no_fly_zones=no_fly_zones)
+
+
+@app.route("/schedule_map_form_action", methods=['GET', 'POST'])
+@login_required
+def schedule_map_form_action():
+    if request.method =="POST":
+        selected_drone_lisenceID = request.form.get('drone_select')
+        if request.form["form_btn"] == "select_drone_btn" and selected_drone_lisenceID != "None":
+            flash(f"Drone with LicenseID {selected_drone_lisenceID} is selected", 'success')
+            if "flight_src_dst" in session:
+                session.pop('flight_src_dst', None)
+            if "mission_path" in session:
+                session.pop('mission', None)
+
+        if request.form["form_btn"] == "create_mission_btn" and selected_drone_lisenceID != "None":
+            src_dst = request.form.get('store_coordinates')
+            src_dst = src_dst.split(",")
+            src_dst_copy = deepcopy(src_dst)
+            src_dst = [[float(src_dst[0]), float(src_dst[1])],[float(src_dst[2]), float(src_dst[3])]]
+            src_dst_copy = [[float(src_dst_copy[0]), float(src_dst_copy[1]), 0.001],[float(src_dst_copy[2]), float(src_dst_copy[3]), 0.001]]
+            src_dst_json = {"start": src_dst[0], "destination": src_dst[1]}
+            session["flight_src_dst"] = src_dst_json
+            flash(f"Mission is created to Drone with LicenseID {selected_drone_lisenceID}", 'success')
+                    
+            #here we should pass the src_dst and obstacles from the database and get the mission path
+            env_config = json.load(open("./dtm/config/env2_nocube.json"))
+            no_fly_zones = json.load(open("./dtm/config/no_fly_zones.json"))
+            for key in no_fly_zones:
+                for element in no_fly_zones[key]:
+                    element.append(10)
+
+            mission_path = {'coordinates': rrt_connect3D.find_new_path(selected_drone_lisenceID, src_dst_copy[0], src_dst_copy[1], env_config, no_fly_zones, False)}
+            flight_paths = list(current_flights.find({'droneLicenseID': {"$ne" : selected_drone_lisenceID}}))
+            print(flight_paths)
+            mission_path = {'coordinates': rrt_connect3D.check_intersects(mission_path['coordinates'], flight_paths)}
+            session["mission_path"] = mission_path
+
+        if request.form["form_btn"] == "send_mission_btn" and selected_drone_lisenceID != "None":
+            flash(f"Mission is sent to Drone with LicenseID {selected_drone_lisenceID}", 'success')
+            mission_str = request.form.get('created_mission')
+
+            if mission_str:
+                broker_client.publish("mission", mission_str)
+                flight_path = list(current_flights.find({"droneLicenseID": selected_drone_lisenceID}))
+                if flight_path:
+                    current_flights.update_one({"droneLicenseID": selected_drone_lisenceID}, {"$set": {"flight_path": session["mission_path"]}})
+                else:
+                    flight_path = {"droneLicenseID": selected_drone_lisenceID, "flight_path": session["mission_path"]}
+                    current_flights.insert_one(flight_path)
+
+            session.pop('mission_path', None)
+
+
+    return redirect(url_for('schedule_map', selected_drone = selected_drone_lisenceID))
+
+
+@app.route("/monitor_map_operator_filter", methods=['GET', 'POST'])
+@login_required
+def monitor_map_operator_filter():
+    setected_operator_email = request.form.get('operator_select')
+    return redirect(url_for('admin_monitor_map', selected_operator = setected_operator_email))
+
 
 @app.route("/drones", methods=['GET', 'POST'])
 @login_required
@@ -152,12 +240,13 @@ def drones_route():
                 'flight_mode': "Manual",
                 'speed': 0,
                 'eta': 0,
-                'connected': False}
+                'connected': False,}
         drones.insert_one(drone)
         flash(f'The Drone with the ID ({form.droneLicenseID.data}) is added successfully.', 'success')
         return redirect(url_for('account'))
 
     return render_template("drones.html", form=form, title="Drones",)
+
 
 @app.route("/authAccounts", methods=['GET', 'POST'])
 @login_required
@@ -167,6 +256,7 @@ def authAccounts():
 
     return render_template('authAccounts.html', unAuth=unAuthUsers, Auth=AuthUsers)
 
+
 @app.route('/accept/<user_email>', methods=['GET', 'POST'])
 @login_required
 def accept_user(user_email):
@@ -175,6 +265,7 @@ def accept_user(user_email):
     users.update_one({'email': user_email}, {'$set': {'adminAuth': True}})
     return redirect(url_for('authAccounts'))
 
+
 @app.route('/unaccept/<user_email>', methods=['GET', 'POST'])
 @login_required
 def unaccept_user(user_email):
@@ -182,6 +273,7 @@ def unaccept_user(user_email):
     flash(f"{user['username']} was moved to pending requests successfully", "success")
     users.update_one({'email': user_email}, {'$set': {'adminAuth': False}})
     return redirect(url_for('authAccounts'))
+
 
 @app.route('/reject/<user_email>', methods=['GET', 'POST'])
 @login_required
@@ -192,22 +284,33 @@ def reject_user(user_email):
     users.delete_one({'email': user_email})
     return redirect(url_for('authAccounts'))
 
-@app.route("/schedule_map_drone_select", methods=['GET', 'POST'])
-@login_required
-def schedule_map_drone_select():
-    selected_drone_lisenceID = request.form.get('drone_select')
-    return redirect(url_for('schedule_map', selected_drone = selected_drone_lisenceID))
 
-@app.route("/monitor_map_drone_select", methods=['GET', 'POST'])
-@login_required
-def monitor_map_drone_select():
-    selected_drone_lisenceID = request.form.get('drone_select')
-    return redirect(url_for('monitor_map', selected_drone = selected_drone_lisenceID))
+def check_ongoing_flights():
+    flight_path = list(current_flights.find({}))
+    if flight_path:
+        for fp in flight_path:
+            drone = list(drones.find({"droneLicenseID": fp["droneLicenseID"]}))
+            if drone:
+                if drone[0]["armed"] == False:
+                    current_flights.delete_one({"droneLicenseID": fp["droneLicenseID"]})
 
-@app.route("/monitor_map_drone_filter", methods=['GET', 'POST'])
-@login_required
-def monitor_map_drone_filter():
-    setected_operator_email = request.form.get('operator_select')
-    return redirect(url_for('monitor_map', selected_operator = setected_operator_email))
+def check_users_licences_exp_date():
+    users_list = list(users.find({}))
+    if users_list:
+        for user in users_list:
+            drones_list = list(drones.find({'operator_id': user["_id"]}))
+            if user["expireDate"] < datetime.datetime.now():
+                user["adminAuth"] = False
+            if drones_list:
+                for drone in drones_list:
+                    if drone["droneLicenseExpDate"] < datetime.datetime.now():
+                        drones.delete_one({"droneLicenseID": drone["droneLicenseID"]})
 
-    
+
+sched = BackgroundScheduler()
+#check every one hour and remove completed flights
+sched.add_job(check_ongoing_flights,'interval',minutes=60)
+#check every 24 house on expired licenses
+sched.add_job(check_users_licences_exp_date,'interval',hours=24)
+sched.start()
+atexit.register(lambda: sched.shutdown())

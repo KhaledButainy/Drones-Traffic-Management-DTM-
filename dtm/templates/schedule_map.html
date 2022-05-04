@@ -31,27 +31,95 @@
     <div id='map' style='width: 100%; height: 500px;'></div>
     <pre id="coordinates" class="coordinates"></pre>
     <script>
-    mapboxgl.accessToken = '{{mapbox_access_token}}';
 
     const coordinates = document.getElementById('coordinates');
+    var mission_object = { "fileType": "Plan",
+            "geoFence": {
+                "circles": [
+                ],
+                "polygons": [
+                ],
+                "version": 2
+            },
+            "groundStation": "QGroundControl",
+            "mission": {
+                "cruiseSpeed": 15,
+                "firmwareType": 3,
+                "globalPlanAltitudeMode": 1,
+                "hoverSpeed": 5,
+                "items": [],
+                "plannedHomePosition": [
+                    26.3097474189815,
+                    50.147202275528485,
+                    58.00923433932765
+                ],
+                "vehicleType": 0,
+                "version": 2
+            },
+            "rallyPoints": {
+                "points": [
+                ],
+                "version": 2
+            },
+            "version": 1
+        };
+
+    var src_dst = JSON.parse('{{ src_dst | tojson | safe}}');
+    const mission_path = JSON.parse('{{ mission_path | tojson | safe}}');
+    const no_fly_zones_json = JSON.parse('{{ no_fly_zones | tojson | safe}}');
+
+    mapboxgl.accessToken = '{{mapbox_access_token}}';
     var map = new mapboxgl.Map({
       container: 'map',
       style: '{{mapbox_style}}',
     });
 
     map.on('load', () => {
-        var geojson = {
+
+        map.addSource('no_fly_zones', {
+            'type': 'geojson',
+            'data': {
+            'type': 'Feature',
+            'geometry': {
+                'type': 'Polygon',
+                'coordinates': Object.values(no_fly_zones_json),
+                }
+            }
+        });
+            
+        map.addLayer({
+            'id': 'outline',
+            'type': 'line',
+            'source': 'no_fly_zones',
+            'paint': {
+            'line-color': '#DC143C',
+            'line-width': 3
+            },
+            "filter": ['in', '$type', 'Polygon']
+        });
+
+        var path_points = {
             "type": "FeatureCollection",
             "features": []
         };
+        
         var flight_start_dist = {
             "type": "FeatureCollection",
             'features' : []
         };
 
-        map.addSource('geojson', {
+        var path_lines = {
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+                'type': 'LineString',
+                'coordinates': []
+            }
+            };
+
+        map.addSource('path_points', {
             'type': 'geojson',
-            'data': geojson
+            'data': path_points
             });
 
         map.addSource('flight_start_dist', {
@@ -59,12 +127,30 @@
             'data': flight_start_dist
             });
             
+        map.addSource('route', {
+            'type': 'geojson',
+            'data': path_lines
+        });
         // Add styles to the map
         map.addLayer({
-            id: 'coordinate_points',
+            'id': 'route',
+            'type': 'line',
+            'source': 'route',
+            'layout': {
+            'line-join': 'round',
+            'line-cap': 'round'
+            },
+            'paint': {
+            'line-color': '#008B8B',
+            'line-width': 3
+            }
+        });
+
+        map.addLayer({
+            id: 'path_points_plt',
             type: 'circle',
-            source: 'geojson',
-            paint: {'circle-radius': 10,'circle-color': '#000'},
+            source: 'path_points',
+            paint: {'circle-radius': 5,'circle-color': '#00BFFF'},
             filter: ['in', '$type', 'Point']
         });
 
@@ -72,15 +158,135 @@
             id: 'src_dist_points',
             type: 'circle',
             source: 'flight_start_dist',
-            paint: {'circle-radius': 7,'circle-color': '#000'},
+            paint: {'circle-radius': 7,'circle-color': '#FF8C00'},
             filter: ['in', '$type', 'Point']
         });
+
+        if (src_dst){
+            const start_point = {
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'Point',
+                            'coordinates': src_dst.start
+                        },
+                        'properties': {
+                            'id': String(new Date().getTime()),
+                            'src_dist' : 'Start'
+                        }
+                    }
+            const dst_point = {
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'Point',
+                            'coordinates': src_dst.destination
+                        },
+                        'properties': {
+                            'id': String(new Date().getTime()),
+                            'src_dist' : 'Start'
+                        }
+                    }
+            flight_start_dist.features.push(start_point);
+            flight_start_dist.features.push(dst_point);
+            map.getSource('flight_start_dist').setData(flight_start_dist);
+            if (mission_path.coordinates.length){
+                const take_off_point = {
+                    "AMSLAltAboveTerrain": null,
+                    "Altitude": mission_path.coordinates[0][2],
+                    "AltitudeMode": 1,
+                    "autoContinue": true,
+                    "command": 22,
+                    "doJumpId": 1,
+                    "frame": 3,
+                    "params": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        mission_path.coordinates[0][2]
+                    ],
+                    "type": "SimpleItem"
+                }
+                mission_object.mission.items.push(take_off_point);
+                mission_path.coordinates.forEach(function (coord){
+                    const middle_point = {
+                        "AMSLAltAboveTerrain": null,
+                        "Altitude": coord[2],
+                        "AltitudeMode": 1,
+                        "autoContinue": true,
+                        "command": 16,
+                        "doJumpId": 5,
+                        "frame": 3,
+                        "params": [
+                            0,
+                            0,
+                            0,
+                            null,
+                            coord[1],
+                            coord[0],
+                            coord[2]
+                        ],
+                        "type": "SimpleItem"
+                    }
+                    mission_object.mission.items.push(middle_point);
+                })
+                mission_object.mission.items.pop();
+                const land_point = {
+                    "AMSLAltAboveTerrain": null,
+                    "Altitude": 0,
+                    "AltitudeMode": 1,
+                    "autoContinue": true,
+                    "command": 21,
+                    "doJumpId": 6,
+                    "frame": 3,
+                    "params": [
+                        0,
+                        0,
+                        0,
+                        null,
+                        mission_path.coordinates[mission_path.coordinates.length-1][1],
+                        mission_path.coordinates[mission_path.coordinates.length-1][0],
+                        0
+                    ],
+                    "type": "SimpleItem"
+                }
+                mission_object.mission.items.push(land_point);
+            }
+            console.log(mission_object);
+        }
+
+        if (mission_object.mission.items.length){
+            const mission_src = mission_object.mission.items[1].params;
+            const mission_dst = mission_object.mission.items[mission_object.mission.items.length -1].params;
+            
+            mission_object.mission.items.forEach(function (p){
+                if (p.command != 22){
+                    const path_point = {
+                        'type': 'Feature',
+                        'geometry': {
+                            'type': 'Point',
+                            'coordinates': [p.params[mission_src.length - 2], p.params[mission_src.length - 3]]
+                        }
+                    }
+                    console.log(path_point);
+                    path_points.features.push(path_point);
+                    path_lines.geometry.coordinates.push(path_point.geometry.coordinates);
+                }
+
+            });
+            document.getElementById("created_mission").value = JSON.stringify(mission_object);
+            console.log(document.getElementById("created_mission"));
+            console.log(mission_object);
+            map.getSource('path_points').setData(path_points);
+            map.getSource('route').setData(path_lines);
+        }
 
         // Change the cursor to a pointer when hovering over a point on the map.
         // Otherwise cursor is a crosshair.
         map.on('mousemove', (e) => {
             const features = map.queryRenderedFeatures(e.point, {
-                layers: ['coordinate_points', 'src_dist_points']
+                layers: ['src_dist_points']
             });
             map.getCanvas().style.cursor = features.length
             ? 'pointer'
@@ -91,14 +297,14 @@
             } else if (flight_start_dist.features.length == 1){
                 coordinates.innerHTML = `Start Point       | lng: ${flight_start_dist.features[0].geometry.coordinates[0]}, lat: ${flight_start_dist.features[0].geometry.coordinates[1]}<br />lng: ${e.lngLat.lng}, lat: ${e.lngLat.lat}`;
             } else if (flight_start_dist.features.length == 2){
-                coordinates.innerHTML = `Start Point       | lng: ${flight_start_dist.features[0].geometry.coordinates[0]}, lat: ${flight_start_dist.features[0].geometry.coordinates[1]}<br />Distination Point | lng: ${flight_start_dist.features[1].geometry.coordinates[0]}, lat: ${flight_start_dist.features[1].geometry.coordinates[1]}<br />lng: ${e.lngLat.lng}, lat: ${e.lngLat.lat}`;
+                coordinates.innerHTML = `Start Point       | lng: ${flight_start_dist.features[0].geometry.coordinates[0]}, lat: ${flight_start_dist.features[0].geometry.coordinates[1]}<br />Destination Point | lng: ${flight_start_dist.features[1].geometry.coordinates[0]}, lat: ${flight_start_dist.features[1].geometry.coordinates[1]}<br />lng: ${e.lngLat.lng}, lat: ${e.lngLat.lat}`;
             }
 
         });
         
         map.on('click', (e) => {
             const features = map.queryRenderedFeatures(e.point, {
-                layers: ['src_dist_points']
+                layers: ['src_dist_points', 'path_points_plt']
             });
             if ('{{selected_drone}}' != 'None'){
                 if (flight_start_dist.features.length == 0){
@@ -114,52 +320,71 @@
                         }
                     }
                     flight_start_dist.features.push(point);
-                    console.log(flight_start_dist.features);
                     document.getElementById('source_selected').style = "color:green";
+                    document.getElementById('create_mission_btn').disabled = true;
                     document.getElementById('send_mission_btn').disabled = true;
+                    document.getElementById('store_coordinates').value = [];
+                    document.getElementById("created_mission").value = {};
+                    path_lines.geometry.coordinates = [];
+                    path_points.features = [];
+
                     coordinates.innerHTML = `Start Point       | lng: ${flight_start_dist.features[0].geometry.coordinates[0]}, lat: ${flight_start_dist.features[0].geometry.coordinates[1]}`;
                 } else if (flight_start_dist.features.length == 1){
                     if (features.length){
                         const id = features[0].properties.id;
                         flight_start_dist.features = flight_start_dist.features.filter((point) => point.properties.id !== id);
                         document.getElementById('source_selected').style = "color:gray";
-                        document.getElementById('distination_selected').style = "color:gray";
+                        document.getElementById('destination_selected').style = "color:gray";
+                        document.getElementById('create_mission_btn').disabled = true;
                         document.getElementById('send_mission_btn').disabled = true;
+                        document.getElementById('store_coordinates').value = [];
+                        document.getElementById("created_mission").value = {};
+                        path_lines.geometry.coordinates = [];
+                        path_points.features = [];
+
                     }else{
                         const point = {
-                        'type': 'Feature',
-                        'geometry': {
-                            'type': 'Point',
-                            'coordinates': [e.lngLat.lng, e.lngLat.lat]
-                        },
-                        'properties': {
-                            'id': String(new Date().getTime()),
-                            'src_dist' : 'Distination'
+                            'type': 'Feature',
+                            'geometry': {
+                                'type': 'Point',
+                                'coordinates': [e.lngLat.lng, e.lngLat.lat]
+                            },
+                            'properties': {
+                                'id': String(new Date().getTime()),
+                                'src_dist' : 'Destination'
+                            }
                         }
-                    }
-                    // here we should generate the flight path and plot it
-                    flight_start_dist.features.push(point);
-                    console.log(flight_start_dist.features);
-                    document.getElementById('source_selected').style = "color:green";
-                    document.getElementById('distination_selected').style = "color:green";
-                    document.getElementById('send_mission_btn').disabled = false;
-                    coordinates.innerHTML = `Start Point       | lng: ${flight_start_dist.features[0].geometry.coordinates[0]}, lat: ${flight_start_dist.features[0].geometry.coordinates[1]}<br />Distination Point | lng: ${flight_start_dist.features[1].geometry.coordinates[0]}, lat: ${flight_start_dist.features[1].geometry.coordinates[1]}`;
+                        // here we should generate the flight path and plot it
+                        flight_start_dist.features.push(point);
+                        document.getElementById('source_selected').style = "color:green";
+                        document.getElementById('destination_selected').style = "color:green";
+                        document.getElementById('create_mission_btn').disabled = false;
+                        document.getElementById('store_coordinates').value = [[flight_start_dist.features[0].geometry.coordinates[0], flight_start_dist.features[0].geometry.coordinates[1]],[flight_start_dist.features[1].geometry.coordinates[0], flight_start_dist.features[1].geometry.coordinates[1]]];
+
+                        coordinates.innerHTML = `Start Point       | lng: ${flight_start_dist.features[0].geometry.coordinates[0]}, lat: ${flight_start_dist.features[0].geometry.coordinates[1]}<br />Destination Point | lng: ${flight_start_dist.features[1].geometry.coordinates[0]}, lat: ${flight_start_dist.features[1].geometry.coordinates[1]}`;
                     }                
                 } else if (flight_start_dist.features.length == 2){
                     // here we should delete the flight path
                     flight_start_dist.features.shift();
                     flight_start_dist.features[0].properties.src_dist = 'Start'
-                    console.log(flight_start_dist.features);
                     document.getElementById('source_selected').style = "color:green";
-                    document.getElementById('distination_selected').style = "color:gray";
+                    document.getElementById('destination_selected').style = "color:gray";
+                    document.getElementById('create_mission_btn').disabled = true;
                     document.getElementById('send_mission_btn').disabled = true;
+
+                    document.getElementById('store_coordinates').value = [];
+                    document.getElementById("created_mission").value = {};
+                    path_lines.geometry.coordinates = [];
+                    path_points.features = [];
+
                     coordinates.innerHTML = `Start Point       | lng: ${flight_start_dist.features[0].geometry.coordinates[0]}, lat: ${flight_start_dist.features[0].geometry.coordinates[1]}`;
                 }
 
-                
-                // updating the flight start and distination coordinates
+                // updating the flight start and destination coordinates
                 map.getSource('flight_start_dist').setData(flight_start_dist);
-                
+                map.getSource('path_points').setData(path_points);
+                map.getSource('route').setData(path_lines);
+
             };
         });
     })
@@ -174,9 +399,9 @@
         <h3>Schedule a Flight</h3>
         &nbsp;
             <h6>Note: connect your drone kit first.</h6>
-            &nbsp;
         &nbsp;
-        <form class="form-inline" method="POST" action="{{ url_for('schedule_map_drone_select') }}">
+        &nbsp;
+        <form class="form-inline" method="POST" action="{{ url_for('schedule_map_form_action') }}">
             <h6 class="input-group-addon">Please select a drone</h6>
             <div class="form-group">
               <div class="input-group">
@@ -189,7 +414,33 @@
                     {% endfor %}
                 </select>
               </div>
-              <button id="select_drone_btn" type="submit" class="btn btn-dark">Select</button>
+              <button id="select_drone_btn" name="form_btn" value="select_drone_btn" type="submit" class="btn btn-dark">Select</button>
+            </div>
+            <div class="form-group">
+                <div class="input-group">
+                    <input name="store_coordinates" id = "store_coordinates" hidden></input>
+                </div>
+                <br>
+                <br>
+                <br>
+                <button id="create_mission_btn" name="form_btn" value="create_mission_btn" type="submit" class="btn btn-dark"
+                {% if selected_drone == 'None' %} disabled = true {% else %} disabled = false {% endif %}>Create Mission</button>
+            </div>
+            <div class="form-group">
+                <div class="input-group">
+                    <input name="created_mission" id = "created_mission" hidden></input>
+                </div>
+                <br>
+                <br>
+                <button id="send_mission_btn" name="form_btn" value="send_mission_btn" type="submit" class="btn btn-danger"
+                {% if src_dst == 'None' %} disabled = true {% else %} disabled = false {% endif %}>Send Mission to Drone</button>
+                <script>
+                        if ("{{src_dst}}" == "None"){
+                            document.getElementById('send_mission_btn').disabled = true;
+                        }else{
+                            document.getElementById('send_mission_btn').disabled = false;
+                        }
+                </script>
             </div>
           </form>
     </div>
@@ -204,15 +455,18 @@
             }
         </script>
         <p style ="color:gray" id="source_selected">- select <b>Start Point</b></p>
-        <p style ="color:gray" id="distination_selected">- select <b>Distination Point</b></p>
+        <p style ="color:gray" id="destination_selected">- select <b>Destination Point</b></p>
+        <script>
+            if ("{{ src_dst }}" == 'None'){
+                document.getElementById("source_selected").style = "color:gray"
+                document.getElementById("destination_selected").style = "color:gray"
+            }else{
+                document.getElementById("source_selected").style = "color:green"
+                document.getElementById("destination_selected").style = "color:green"
+            }
+        </script>
     </body>
-        <button id="send_mission_btn" type="submit" class="btn btn-dark" {% if selected_drone == 'None' %} disabled = true {% else %} disabled = false {% endif %}>Send Mission to Drone</button>
-
 </div>
-
-<script>
-    
-</script>
 
 {% endblock schedule_sidebar %}
 

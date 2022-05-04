@@ -1,19 +1,90 @@
 
 {% extends "layout.html" %}
-{% block content %}
+{% block homepage %}
+    <style>
+        body {
+        background: #eee;
+        }
 
-    <h1>Home Page</h1>
-    <!-- {% for post in posts%}
-    <article class="media content-section">
-        <div class="media-body">
-            <div class="article-metadata">
-            <a class="mr-2" href="#">{{ post.author }}</a>
-            <small class="text-muted">{{ post.date_posted }}</small>
+        .name {
+        color: darkblue;
+        }
+
+        .work {
+        font-weight: bold;
+        font-size: 15px;
+        }
+
+        .about span {
+        font-size: 13px;
+        }
+
+        .v-profile {
+        color: blue;
+        cursor: pointer;
+        }
+
+        .box {
+        -webkit-box-shadow: 13px 12px 5px -10px rgba(196,194,196,0.72);
+        -moz-box-shadow: 13px 12px 5px -10px rgba(196,194,196,0.72);
+        box-shadow: 13px 12px 5px -10px rgba(196,194,196,0.72);
+        }
+
+        .col-md-3 {
+        margin-top: 10px;
+        }
+    </style>
+    <h1 class="text-center"><b>DTM</b></h1>
+    <h5 class="text-center"><b>Drones Traffic Management</b> Made Easy.</h5>
+    <br>
+    <h6 class="text-center">We aim to assist the governmental sector in enforcing rules and regulations for flying drones<br>through designing a traffic management system to monitor and regulate the drones’ operations.</h6>
+    <h6 class="text-center">The system provides an interactive map that can be used to monitor flights in real-time, plan flights, and execute them.<br> Also, the system allow setting flying boundaries, authorizing operators and validating their licenses.</h6>
+    <div class="container text-center mt-5 mb-2">
+        <h1 class="mb-0">Meet our Team</h1></div>
+    <div class="container mt-3">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="bg-white p-3 text-center rounded box"><img class="img-responsive rounded-circle" src="{{ url_for('static', filename='images/Faisal.jpg') }}" width="90">
+                    <h5 class="mt-3 name">Faisal Hijazi</h5><small class="work d-block"><b>Computer Engineering Student</b></small><small class="work d-block">College of Computing and Mathematics</small>
+                    <div class="mt-4 about"><a href="https://www.linkedin.com/in/hijazifaisal/">LinkedIn</a></div>
+                </div>
             </div>
-            <h2><a class="article-title" href="#">{{ post.title }}</a></h2>
-            <p class="article-content">{{ post.content }}</p>
+            <div class="col-md-3">
+                <div class="bg-white p-3 text-center rounded box"><img class="img-responsive rounded-circle" src="{{ url_for('static', filename='images/Khaled.jpg') }}" width="90">
+                    <h5 class="mt-3 name">Khaled Al Butainy</h5><small class="work d-block"><b>Computer Engineering Student</b></small><small class="work d-block">College of Computing and Mathematics</small>
+                    <div class="mt-4 about"><a href="https://www.linkedin.com/in/khaled-al-butainy/">LinkedIn</a></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="bg-white p-3 text-center rounded box"><img class="img-responsive rounded-circle" src="{{ url_for('static', filename='images/default.jpg') }}" width="90">
+                    <h5 class="mt-3 name">Meshal Alhweti</h5><small class="work d-block"><b>Computer Engineering Student</b></small><small class="work d-block">College of Computing and Mathematics</small>
+                    <div class="mt-4 about"><a href="https://www.linkedin.com/in/meshal-alhweti/">LinkedIn</a></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="bg-white p-3 text-center rounded box"><img class="img-responsive rounded-circle" src="{{ url_for('static', filename='images/Tarig.jpg') }}" width="90">
+                    <h5 class="mt-3 name">Tarig Eltahir</h5><small class="work d-block"><b>Computer Engineering Student</b></small><small class="work d-block">College of Computing and Mathematics</small>
+                    <div class="mt-4 about"><a href="https://www.linkedin.com/in/tareg-eltahir">LinkedIn</a></div>
+                </div>
+            </div>
         </div>
-    </article>
-    {% endfor %} -->
+        <div class="container text-center mt-5 mb-2">
+            <h1 class="mb-0">Meet our Supervisors</h1></div>
+        <div class="container mt-3">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="bg-white p-3 text-center rounded box"><img class="img-responsive rounded-circle" src="{{ url_for('static', filename='images/Dr. Elrabaa.jpg') }}" width="90">
+                    <h5 class="mt-3 name">Dr. Muhammed El-Rabaa</h5><small class="work d-block"><b>Professor, Project Supervisor</b></small><small class="work d-block">College of Computing and Mathematics</small>
+                    <div class="mt-4 about"><a href="https://scholar.google.com/citations?hl=en&user=nQiKuREAAAAJ&view_op=list_works&sortby=pubdate/">Google Scholar</a></div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="bg-white p-3 text-center rounded box"><img class="img-responsive rounded-circle" src="{{ url_for('static', filename='images/Dr. Tarek.jpg') }}" width="90">
+                    <h5 class="mt-3 name">Dr. Tarek Rahil Sheltami</h5><small class="work d-block"><b>Professor, Project Co-Supervisor</b></small><small class="work d-block">College of Computing and Mathematics</small>
+                    <div class="mt-4 about"><a href="https://scholar.google.com/citations?hl=en&user=jffHzfQAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-{% endblock content%}
+{% endblock homepage%}
