@@ -26,28 +26,7 @@
             border-radius: 3px;
             display: block;
         }
-
-        .calculation-box {
-            height: 75px;
-            width: 150px;
-            position: absolute;
-            bottom: 40px;
-            left: 10px;
-            background-color: rgba(255, 255, 255, 0.9);
-            padding: 15px;
-            text-align: center;
-            }
-            
-            p {
-            font-family: 'Open Sans';
-            margin: 0;
-            font-size: 13px;
-        }
     </style>
-
-    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.2.2/mapbox-gl-draw.js"></script>
-    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-draw/v1.2.2/mapbox-gl-draw.css" type="text/css">
 
     <div id='map' style='width: 100%; height: 500px;'></div>
     <pre id="coordinates" class="coordinates"></pre>
@@ -64,8 +43,8 @@
     var map = new mapboxgl.Map({
       container: 'map',
       style: '{{mapbox_style}}',
-    }); 
-    
+    });
+
     map.on('load', async () => {
 
         map.addSource('no_fly_zones', {
@@ -89,7 +68,7 @@
             },
             "filter": ['in', '$type', 'Polygon']
         });
-
+        
         var drones_markers = {};
         var drones_altitude = {};
         var drones_gps_status = {};
@@ -99,7 +78,7 @@
         var drones_eta = {};
         
         await client.auth.loginWithCredential(new stitch.AnonymousCredential());
-        let userDrones = (await db.collection("drone").find({"operator_email": "{{current_user_email}}"}).toArray());
+        let userDrones = (await db.collection("drone").find({}).toArray());
         let connectedDrones = userDrones.filter(drone => drone.connected === true);
         if (connectedDrones.length){
             connectedDrones.forEach(function (drone){
@@ -149,7 +128,7 @@
             });
         }
         // only watch updates in drone collection that matchese the criteria
-        const stream = await db.collection("drone").watch({"fullDocument.operator_email": "{{current_user_email}}"});
+        const stream = await db.collection("drone").watch({});
         
         stream.onNext(e => {
             if (e.updateDescription.updatedFields.hasOwnProperty("connected")){
@@ -238,12 +217,10 @@
             coordinates.innerHTML = `lng: ${e.lngLat.lng}, lat: ${e.lngLat.lat}`;
         });
 
-        // map.on('click', (e) => {
-        //     console.log(draw.getAll());
-        // });
-
+        
+        
     })
-
+    
     function mapJump(droneLcnsId){
         map.flyTo({
             center: [
@@ -260,13 +237,34 @@
 {% endblock content%}
 {% block monitor_sidebar %}
 <div class="col-md-4">
+        <div class="content-section">
+        <h3>Select Operator</h3>
+        &nbsp;
+        <form class="form-inline" method="POST" action="{{ url_for('monitor_map_operator_filter') }}">
+            <div class="form-group">
+              <div class="input-group">
+                <select name="operator_select" class="selectpicker form-control" required>
+                    <option id="operator_option" name="operator_option" value="All" {% if selected_operator == 'All' %} selected {% endif %}>All</option>
+                    {% for op in operators %}
+                        <option id="operator_option" name="operator_option" value="{{ op.email }}" {% if selected_operator == op.email %} selected {% endif %}>
+                            {{ op.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+              </div>
+              <button id="select_operator_btn" type="submit" class="btn btn-dark">Select</button>
+            </div>
+          </form>
+    </div>
     <div class="content-section">
         <h3>Streaming Info</h3>
         <p class='text-muted'>
         <ul class="list-group">
             {% if drones %}
                 {% for drone in drones %}
-                <a class="list-group-item list-group-item-danger" id="{{ drone.droneLicenseID }}" value="{{ drone.droneLicenseID }} " onclick="mapJump(this)">
+                <a class="list-group-item list-group-item-danger" id="{{ drone.droneLicenseID }}" value="{{ drone.droneLicenseID }}"
+                {% if selected_operator !="All" and selected_operator != drone.operator_email %} hidden {% endif %}
+                onclick="mapJump(this)">
                         <h6><b>{{drone.type}} {{drone.brand}}</b> <small>(LcnsID: {{drone.droneLicenseID}})</small></h6>
                         <div name="stream_row" class="row">
                             <div name="stream_col1" class="col-4">
@@ -298,3 +296,4 @@
 </div>
 
 {% endblock monitor_sidebar %}
+

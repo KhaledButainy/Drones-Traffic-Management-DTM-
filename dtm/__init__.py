@@ -2,6 +2,8 @@ from flask import Flask
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from flask_pymongo import PyMongo
+from flask import Flask
+import paho.mqtt.client as mqtt
 import json
 
 config_json = json.load(open("./dtm/config/config.json"))
@@ -15,6 +17,14 @@ mongo = PyMongo(app)
 users = mongo.db.user
 drones = mongo.db.drone
 admins = mongo.db.admin
+current_flights = mongo.db.current_flight
+
+broker_client = mqtt.Client(client_id="Cloud_client", clean_session=True)
+
+# broker_address = config_json["BROKER_ADDRESS"]  # Broker address in config
+# port = config_json["BROKER_PORT"]  # Broker port in config
+# broker_client.username_pw_set(username=config_json["BROKER_CLIENT_USERNAME"], password=config_json["BROKER_CLIENT_PASSWORD"])
+# broker_client.connect(broker_address, port=port) 
 
 
 MAPBOX_ACCESS_TOKEN = config_json["MAPBOX_ACCESS_TOKEN"]
@@ -33,6 +43,7 @@ for d in config_json['ADMINS']:
 
 admins.drop()
 admins.insert_many(config_json['ADMINS'])
+
 
 
 from dtm import routes
