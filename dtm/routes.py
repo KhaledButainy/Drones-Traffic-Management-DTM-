@@ -1,7 +1,7 @@
 
 import datetime
 from flask import flash, render_template, url_for, flash, redirect, request, session
-from dtm import app, users, admins, drones, current_flights, bcrypt, broker_client, MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE, DATABASE_NAME, STITCH_APP_ID
+from dtm import app, users, admins, drones, current_flights, bcrypt,config_json, broker_client, MAPBOX_ACCESS_TOKEN, MAPBOX_STYLE, DATABASE_NAME, STITCH_APP_ID
 from dtm.forms import DroneFrom, RegistraionFrom, LoginForm, UpdateAccountForm
 from dtm.models import User, Admin
 from flask_login import login_user, logout_user, current_user, login_required
@@ -197,6 +197,10 @@ def schedule_map_form_action():
         if request.form["form_btn"] == "send_mission_btn" and selected_drone_lisenceID != "None":
             flash(f"Mission is sent to Drone with LicenseID {selected_drone_lisenceID}", 'success')
             mission_str = request.form.get('created_mission')
+            broker_address = config_json["BROKER_ADDRESS"]  # Broker address in config
+            port = config_json["BROKER_PORT"]  # Broker port in config
+            broker_client.username_pw_set(username=config_json["BROKER_CLIENT_USERNAME"], password=config_json["BROKER_CLIENT_PASSWORD"])
+            broker_client.connect(broker_address, port=port) 
 
             if mission_str:
                 broker_client.publish("mission", mission_str)

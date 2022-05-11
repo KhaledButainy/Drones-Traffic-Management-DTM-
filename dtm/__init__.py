@@ -21,11 +21,6 @@ current_flights = mongo.db.current_flight
 
 broker_client = mqtt.Client(client_id="Cloud_client", clean_session=True)
 
-# broker_address = config_json["BROKER_ADDRESS"]  # Broker address in config
-# port = config_json["BROKER_PORT"]  # Broker port in config
-# broker_client.username_pw_set(username=config_json["BROKER_CLIENT_USERNAME"], password=config_json["BROKER_CLIENT_PASSWORD"])
-# broker_client.connect(broker_address, port=port) 
-
 
 MAPBOX_ACCESS_TOKEN = config_json["MAPBOX_ACCESS_TOKEN"]
 MAPBOX_STYLE = config_json["MAPBOX_STYLE"]
