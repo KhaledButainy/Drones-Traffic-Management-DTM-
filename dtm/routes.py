@@ -197,6 +197,7 @@ def schedule_map_form_action():
         if request.form["form_btn"] == "send_mission_btn" and selected_drone_lisenceID != "None":
             flash(f"Mission is sent to Drone with LicenseID {selected_drone_lisenceID}", 'success')
             mission_str = request.form.get('created_mission')
+            
             broker_address = config_json["BROKER_ADDRESS"]  # Broker address in config
             port = config_json["BROKER_PORT"]  # Broker port in config
             broker_client.username_pw_set(username=config_json["BROKER_CLIENT_USERNAME"], password=config_json["BROKER_CLIENT_PASSWORD"])
@@ -313,7 +314,7 @@ def check_users_licences_exp_date():
 
 sched = BackgroundScheduler()
 #check every one hour and remove completed flights
-sched.add_job(check_ongoing_flights,'interval',minutes=60)
+sched.add_job(check_ongoing_flights,'interval',minutes=1)
 #check every 24 house on expired licenses
 sched.add_job(check_users_licences_exp_date,'interval',hours=24)
 sched.start()
